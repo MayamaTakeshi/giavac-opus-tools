@@ -58,6 +58,8 @@
 
 #define OPUS_PAYLOAD_TYPE 120
 
+int payload_type = OPUS_PAYLOAD_TYPE;
+
 /* state struct for passing around our handles */
 typedef struct {
   ogg_stream_state *stream;
@@ -540,7 +542,7 @@ int rtp_send_file(const char *filename, const char *dest, int port)
   }
 
   rtp.version = 2;
-  rtp.type = OPUS_PAYLOAD_TYPE;
+  rtp.type = payload_type;
   rtp.pad = 0;
   rtp.ext = 0;
   rtp.cc = 0;
@@ -671,8 +673,10 @@ void write_packet(u_char *args, const struct pcap_pkthdr *header,
   udp_header udp;
   rtp_header rtp;
 
+  /*
   fprintf(stderr, "Got %d byte packet (%d bytes captured)\n",
           header->len, header->caplen);
+  */
   packet = data;
   size = header->caplen;
 
@@ -683,6 +687,7 @@ void write_packet(u_char *args, const struct pcap_pkthdr *header,
         fprintf(stderr, "error parsing eth header\n");
         return;
       }
+      /*
       fprintf(stderr, "  eth 0x%04x", eth.type);
       fprintf(stderr, " %02x:%02x:%02x:%02x:%02x:%02x ->",
               eth.src[0], eth.src[1], eth.src[2],
@@ -694,6 +699,7 @@ void write_packet(u_char *args, const struct pcap_pkthdr *header,
         fprintf(stderr, "skipping packet: no IPv4\n");
         return;
       }
+      */
       packet += ETH_HEADER_LEN;
       size -= ETH_HEADER_LEN;
       break;
@@ -720,12 +726,14 @@ void write_packet(u_char *args, const struct pcap_pkthdr *header,
     fprintf(stderr, "error parsing ip header\n");
     return;
   }
+  /*
   fprintf(stderr, " ipv%d protocol %d", ip.version, ip.protocol);
   fprintf(stderr, " %d.%d.%d.%d ->",
           ip.src[0], ip.src[1], ip.src[2], ip.src[3]);
   fprintf(stderr, " %d.%d.%d.%d",
           ip.dst[0], ip.dst[1], ip.dst[2], ip.dst[3]);
   fprintf(stderr, " header %d bytes\n", ip.header_size);
+  */
   if (ip.protocol != 17) {
     fprintf(stderr, "skipping packet: not UDP\n");
     return;
@@ -767,7 +775,7 @@ void write_packet(u_char *args, const struct pcap_pkthdr *header,
   }
   params->seq = rtp.seq;
 
-  if (rtp.type != OPUS_PAYLOAD_TYPE) {
+  if (rtp.type != payload_type) {
     fprintf(stderr, "skipping non-opus packet\n");
     return;
   }
@@ -947,6 +955,7 @@ void usage(char *exe)
   printf(" -d, --destination    Destination address (default 127.0.0.1)\n");
   printf(" -p, --port           Destination port (default 1234)\n");
   printf(" --sniff              Sniff and record Opus RTP streams\n");
+  printf(" -t, --payload-type   specifies the payload type for opus\n");
   printf(" -e, --extract        Extract from input pcap file (default input.pcap)\n");
   printf("\n");
   printf("By default, the given file(s) will be sent over RTP.\n");
@@ -959,6 +968,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_PCAP
   const char *input_pcap = "input.pcap";
 #endif
+
   int port = 1234;
   struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
@@ -967,6 +977,7 @@ int main(int argc, char *argv[])
     {"destination", required_argument, NULL, 'd'},
     {"port", required_argument, NULL, 'p'},
     {"sniff", no_argument, NULL, 0},
+    {"payload-type", required_argument, NULL, 't'},
     {"extract", required_argument, NULL, 'e'},
     {0, 0, 0, 0}
   };
@@ -996,6 +1007,10 @@ int main(int argc, char *argv[])
       case 'd':
         if (optarg)
             dest = optarg;
+        break;
+      case 't':
+	if (optarg)
+            payload_type = atoi(optarg);
         break;
       case 'e':
 #ifdef HAVE_PCAP
